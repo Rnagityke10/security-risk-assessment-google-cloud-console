@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^source \\.venv/bin/activate && set -o allexport; source \\.env; set \\+o allexport && python vendor_agent\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

@@ -1,0 +1,46 @@
+{
+  "vendor_intake": {
+    "vendor_name": "riti",
+    "use_case": "aalytics",
+    "data_types": "hashed pii",
+    "access_method": "gcp service account"
+  },
+  "interview": [
+    {
+      "question_number": 1,
+      "question": "**Beginning security interview with Riti \u2014 Analytics integration**\n\n---\n\nTo establish a baseline before we get into access controls and network architecture:\n\n**What specific hashed PII fields does your analytics use case require access to \u2014 for example, hashed emails, hashed phone numbers, or hashed device identifiers \u2014 and can you describe the hashing algorithm and salting scheme in use, so we can assess the re-identification risk of the data you'll be handling?**",
+      "answer": "credit card and some KYC information will be hashed and some hashed emails. it's the SHA algorithm. I don't know about the salting scheme"
+    },
+    {
+      "question_number": 2,
+      "question": "\u26a0\ufe0f RISK: SHA alone (especially unsalted SHA-256 or SHA-1) applied to structured data like credit card numbers and emails is highly vulnerable to rainbow table and brute-force re-identification attacks \u2014 this data should be treated as **effectively reversible PII** until the salting scheme is confirmed.\n\n---\n\nThe fact that you're unsure about salting is a significant gap we'll need your technical team to close before this integration proceeds. Moving to access controls now:\n\n**For the GCP service account that will be used for this integration \u2014 will your system use a downloaded JSON key file to authenticate, or will it use Workload Identity Federation / short-lived token-based authentication?**",
+      "answer": "short lived token based"
+    },
+    {
+      "question_number": 3,
+      "question": "Good \u2014 short-lived token-based authentication significantly reduces the risk of long-lived credential theft or key leakage.\n\n**What GCP IAM roles or permissions will be bound to this service account \u2014 specifically, are you requesting broad primitive roles like `roles/viewer` or `roles/editor`, or narrowly scoped custom roles limited to only the specific resources and actions your analytics workload requires?**",
+      "answer": "bigquery viewer role"
+    },
+    {
+      "question_number": 4,
+      "question": "\u26a0\ufe0f RISK: `roles/bigquery.dataViewer` granted at the project or dataset level \u2014 rather than scoped to a specific table \u2014 could expose significantly more data than the analytics use case requires, including tables containing data beyond hashed PII.\n\n---\n\n**At what level is the `bigquery.dataViewer` role being bound \u2014 the entire GCP project, a specific dataset, or individual tables that are strictly necessary for your analytics workload?**",
+      "answer": "a specific dataset"
+    },
+    {
+      "question_number": 5,
+      "question": "Good \u2014 dataset-level scoping is meaningfully better than project-level, though we'll want to validate that the dataset contains only the minimum necessary fields.\n\n**When your analytics system queries BigQuery, where do the query results go after processing \u2014 are they stored, exported, or transmitted anywhere outside of GCP, such as to your own cloud environment, a third-party analytics platform, or local infrastructure?**",
+      "answer": "it will be queried from a secured and restricted database that has a security PII tag applied to it exported into a third party vendor folder configured in the GCP environment that contains a project that will configure into googles own environment. We are also looking for an integration point with another vendor/partner that will provide us with hashed ID's which they consider to be PII - all of which will live in a clean room. This will also be exported to their respective enviornments"
+    },
+    {
+      "question_number": 6,
+      "question": "\u26a0\ufe0f RISK: Data is flowing to **multiple external destinations** \u2014 a third-party vendor folder, a partner environment receiving hashed IDs, and a clean room \u2014 each of these egress points represents an independent blast radius and must be individually controlled and audited. This significantly expands the attack surface beyond a simple analytics integration.\n\n---\n\n**For each of these export destinations \u2014 the third-party vendor folder, the partner environment receiving hashed IDs, and the clean room \u2014 are egress controls enforced at the GCP level, such as VPC Service Controls perimeters or Organization Policy constraints, that explicitly prevent data from being exfiltrated to any destination outside of those pre-approved targets?**",
+      "answer": "yes"
+    },
+    {
+      "question_number": 7,
+      "question": "Good \u2014 VPC Service Controls perimeters are the right control here, but we need to validate their configuration in detail.\n\n**Are the VPC Service Controls perimeters configured in *enforced* mode (as opposed to dry-run/audit mode), and have the specific egress rules been reviewed to ensure they explicitly allowlist *only* the approved destination projects and deny all other egress by default?**",
+      "answer": "no"
+    }
+  ],
+  "status": "phase_1_complete \u2014 ready for risk classification"
+}
