@@ -10,6 +10,7 @@ import os
 import json
 
 from risk_classifier import format_transcript, classify_risk, RISK_ICONS
+from report_generator import build_prompt, generate_report, save_report
 
 # ─────────────────────────────────────────────────────────────
 #  Page config
@@ -342,11 +343,41 @@ def render_results():
         mime="application/json"
     )
 
+    # ── Phase 3: Security Design Document ───────────────────
+    st.divider()
+    st.markdown("### Phase 3: Security Design Document")
+    st.markdown("Generate a formal design document ready for internal review and sign-off.")
+
+    if "report_markdown" not in st.session_state:
+        if st.button("Generate Security Design Doc →"):
+            client = get_client()
+            assessment_data = {
+                "vendor_intake":   st.session_state.intake,
+                "interview":       st.session_state.qa_pairs,
+                "risk_assessment": risk,
+            }
+            with st.spinner("Generating Security Design Document..."):
+                prompt_text = build_prompt(assessment_data)
+                st.session_state.report_markdown = generate_report(client, prompt_text)
+            st.rerun()
+    else:
+        report = st.session_state.report_markdown
+        st.markdown(report)
+        st.download_button(
+            label="⬇️ Download Security Design Doc (Markdown)",
+            data=report,
+            file_name=f"{vendor_name.lower().replace(' ', '_')}_security_design_doc.md",
+            mime="text/markdown"
+        )
+        if st.button("Regenerate document"):
+            del st.session_state["report_markdown"]
+            st.rerun()
+
     with st.expander("🛠 Raw Claude response (debug)", expanded=False):
         st.json(risk)
 
     if st.button("Start a new assessment"):
-        for key in ["step", "intake", "conversation_history", "qa_pairs", "current_question", "risk_data"]:
+        for key in ["step", "intake", "conversation_history", "qa_pairs", "current_question", "risk_data", "report_markdown"]:
             del st.session_state[key]
         st.rerun()
 
