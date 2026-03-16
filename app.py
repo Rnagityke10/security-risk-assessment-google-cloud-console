@@ -175,7 +175,7 @@ def render_interview():
     st.info(st.session_state.current_question)
 
     with st.form("answer_form"):
-        answer = st.text_area("Your answer", height=100, placeholder="Type your answer here...")
+        answer = st.text_area("Your answer", height=100, placeholder="Type your answer here...", key=f"answer_{question_number}")
         submitted = st.form_submit_button("Submit answer →")
 
     if submitted:
