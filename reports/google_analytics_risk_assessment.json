@@ -1,0 +1,109 @@
+{
+  "vendor_intake": {
+    "vendor_name": "google analytics",
+    "use_case": "create a clean room in our environment where hashed merchant PII will be matched with ID's provided by the vendor for analytics",
+    "data_types": "hashed PII - name, email, orders",
+    "access_method": "GCP service account"
+  },
+  "interview": [
+    {
+      "question_number": 1,
+      "question": "**Starting the security interview with Google Analytics integration team.**\n\n---\n\nLet's begin with understanding exactly what you'll be working with inside our environment.\n\n**Domain: Data Classification**\n\nThe intake form indicates the clean room will contain hashed merchant PII \u2014 specifically name, email, and order data. Can you tell us precisely which hashing algorithm and salting scheme you expect to be applied to that data before it enters the clean room, and whether your matching process requires you to ever reconstitute, re-hash, or compare that data against any plaintext or reversible representation on your side?",
+      "answer": "no reversible representation. SHA256"
+    },
+    {
+      "question_number": 2,
+      "question": "Acknowledged \u2014 SHA256 without reversibility reduces direct PII exposure risk, though SHA256 without salting can still be vulnerable to rainbow table attacks against known-format fields like email addresses.\n\n---\n\n**Domain: Authentication**\n\nThe intake form states the integration method is a GCP service account. Can you describe exactly how your system will authenticate using that service account \u2014 specifically, will you be using exported JSON key files, Workload Identity Federation, or another mechanism, and who or what will have custody of those credentials?",
+      "answer": "workload identity federation"
+    },
+    {
+      "question_number": 3,
+      "question": "Good \u2014 Workload Identity Federation is the preferred approach as it eliminates the risk of long-lived exportable key files.\n\n---\n\n**Domain: Network Boundary**\n\nWhen your system federates its identity and accesses resources inside our GCP environment, can you describe the full network path that traffic will take \u2014 specifically, will access occur over the public internet, a dedicated interconnect, or VPC Service Controls perimeter, and will your workloads be operating from a fixed, known set of IP ranges or cloud project identifiers?",
+      "answer": "VPC service controls perimeter"
+    },
+    {
+      "question_number": 4,
+      "question": "Good \u2014 VPC Service Controls perimeter significantly reduces the risk of data exfiltration through GCP API abuse and lateral movement outside the defined boundary.\n\n---\n\n**Domain: Data Egress**\n\nOnce your system performs the ID matching inside the clean room, where does the output data go \u2014 specifically, what does the matched dataset look like, who can trigger an export out of the clean room environment, and what GCP resources or external destinations are in scope to receive that output?",
+      "answer": "output data goes to vendors gcp environment. unsure of matched dataset, only approved personnel can trigger an export"
+    },
+    {
+      "question_number": 5,
+      "question": "\u26a0\ufe0f RISK: \"Unsure of matched dataset\" is a significant gap \u2014 if the output includes joined or enriched records that combine our hashed PII with vendor-side IDs, the resulting dataset may carry higher re-identification risk than either input alone, and we need explicit schema definition before approving any export path.\n\n---\n\n**Domain: Blast Radius**\n\nIf the Workload Identity Federation configuration were misconfigured or the vendor-side identity provider were compromised, what is the maximum scope of access your service account would have inside our GCP environment \u2014 specifically, what IAM roles and permissions are you requesting, which GCP projects or resources are in scope, and does the service account have any write or delete permissions beyond the clean room dataset?",
+      "answer": "definitely includes enriched records \nbig query viewer only roles"
+    },
+    {
+      "question_number": 6,
+      "question": "Acknowledged \u2014 BigQuery Viewer only is a reasonable least-privilege starting point, though we will need to verify that role binding is scoped strictly to the clean room dataset and not at the project or organization level, given the enriched records concern flagged above.\n\n\u26a0\ufe0f RISK: Confirmed enriched records combining our hashed PII with vendor-provided IDs represent a higher re-identification risk than raw hashed data alone \u2014 the output schema must be explicitly reviewed and approved before any export is authorized.\n\n---\n\n**Domain: Compliance / Residency**\n\nGiven that the clean room will contain enriched records derived from merchant PII, can you confirm which geographic regions your GCP environment operates in, where the output data will be stored and processed after export, and whether your organization is subject to any data residency requirements \u2014 such as GDPR, CCPA, or contractual obligations \u2014 that would govern where this matched dataset can legally reside?",
+      "answer": "montreal and output data stored in atlanta. yes subject to GDPR, CCPA"
+    },
+    {
+      "question_number": 7,
+      "question": "\u26a0\ufe0f RISK: Data originating in Montreal (likely subject to Quebec's Law 25 and potentially GDPR if any EU merchant data is involved) being exported to Atlanta introduces cross-border data transfer risk \u2014 this flow must be validated against GDPR Chapter V transfer mechanisms and Quebec Law 25 requirements, and we will need documented legal basis for the transfer before the integration can be approved.\n\n---\n\n**Domain: Incident Response**\n\nIf a security incident were detected \u2014 such as unauthorized access to the clean room or anomalous export activity \u2014 what is your organization's specific process for notifying us, what is your committed timeframe for breach notification, and do you have automated detection controls in place that would alert you to abnormal access patterns against our BigQuery dataset?",
+      "answer": "alerting in place for our DART and infrasec teams. on vendor side - 48 notification"
+    },
+    {
+      "question_number": 8,
+      "question": "Acknowledged \u2014 internal alerting to DART and infosec teams is a positive control, though we will need to confirm that alerting covers our GCP audit logs and BigQuery data access patterns specifically, not just vendor-side infrastructure.\n\n\u26a0\ufe0f RISK: 48-hour vendor-side breach notification may be insufficient under GDPR Article 33, which mandates notification to supervisory authorities within 72 hours of the controller becoming aware \u2014 however, as the data controller we may have obligations that begin at the moment the vendor detects the breach, meaning the vendor's 48-hour clock and our 72-hour regulatory clock need to be explicitly contractually aligned to avoid a compliance gap.\n\n---\n\nAll 7 domains have now been covered. I have sufficient responses to proceed to a formal security assessment report. Shall I generate the findings and recommendations summary?",
+      "answer": "yes"
+    },
+    {
+      "question_number": 9,
+      "question": "# Third-Party Security Assessment Report\n**Vendor:** Google Analytics\n**Use Case:** Clean Room \u2014 Hashed Merchant PII Matching\n**Date:** 2025\n**Assessor:** Senior Third-Party Security Architect\n\n---\n\n## Executive Summary\n\nThe proposed integration presents a **moderate-to-high risk profile**. While several strong technical controls are in place, critical gaps exist around output data schema definition, cross-border data transfer compliance, and breach notification alignment. The integration should **not be approved** in its current state without resolution of the items flagged below.\n\n---\n\n## Domain-by-Domain Findings\n\n### 1. \ud83d\udd35 Data Classification \u2014 CONDITIONAL PASS\n- **Finding:** Vendor confirmed SHA256 hashing with no plaintext reconstitution.\n- **Residual Risk:** SHA256 without salting is vulnerable to rainbow table attacks on predictable fields such as email addresses.\n- **Recommendation:** Require HMAC-SHA256 with a platform-controlled salt before data enters the clean room. Mandate explicit schema documentation for all input and output datasets.\n\n---\n\n### 2. \u2705 Authentication \u2014 PASS\n- **Finding:** Workload Identity Federation confirmed \u2014 no exported JSON key files.\n- **Residual Risk:** Low, provided the vendor-side identity provider (IdP) is properly hardened.\n- **Recommendation:** Request documentation of the vendor's IdP configuration and token lifetime settings. Verify that the WIF binding is scoped to a specific vendor GCP project, not a broad identity pool.\n\n---\n\n### 3. \u2705 Network Boundary \u2014 PASS\n- **Finding:** Access occurs within a VPC Service Controls perimeter, significantly limiting API-level exfiltration risk.\n- **Residual Risk:** Low, provided the perimeter is correctly configured and regularly audited.\n- **Recommendation:** Conduct a joint review of the VPC-SC perimeter policy to confirm no unintended access paths exist. Ensure audit logs for perimeter violations are actively monitored.\n\n---\n\n### 4. \u26a0\ufe0f Data Egress \u2014 HIGH RISK\n- **Finding:** Output data \u2014 confirmed to include enriched records combining our hashed PII with vendor-provided IDs \u2014 is exported to the vendor's GCP environment in",
+      "answer": "great"
+    },
+    {
+      "question_number": 10,
+      "question": "Thank you! A few final recommendations before this report is actioned:\n\n**Immediate Next Steps I'd suggest:**\n\n1. **Do not approve the integration** until the output dataset schema is formally documented and reviewed \u2014 the enriched records gap is the single highest-priority blocker.\n\n2. **Legal review** should be engaged immediately on the Montreal \u2192 Atlanta data flow given the GDPR and Quebec Law 25 exposure.\n\n3. **Contractual alignment** on breach notification timelines should be explicitly addressed in the Data Processing Agreement (DPA) before signing.\n\n4. **Technical controls** \u2014 specifically HMAC-SHA256 salting and BigQuery dataset-level IAM scoping \u2014 should be validated by your GCP security team before any data is loaded into the clean room.\n\n---\n\nIt looks like my report was cut off at Domain 4 \u2014 would you like me to regenerate the **complete report** with all 7 domains fully documented, including the risk ratings, findings, and recommendations for domains 4 through 7?",
+      "answer": "no this is ok"
+    }
+  ],
+  "risk_assessment": {
+    "authentication": {
+      "rating": "low",
+      "summary": "Vendor confirmed use of Workload Identity Federation, eliminating long-lived exportable key file risk.",
+      "flags": [],
+      "recommendation": "Request documentation of the vendor's IdP configuration, token lifetime settings, and confirm WIF binding is scoped to a specific vendor GCP project rather than a broad identity pool."
+    },
+    "data_exposure": {
+      "rating": "high",
+      "summary": "Output dataset confirmed to include enriched records combining hashed merchant PII with vendor-provided IDs, creating materially higher re-identification risk than the raw inputs alone, and the output schema has not been defined.",
+      "flags": [
+        "SHA256 hashing applied without salting, exposing predictable fields like email to rainbow table attacks",
+        "Vendor confirmed enriched records in output but could not define the matched dataset schema",
+        "Combined hashed PII plus vendor IDs raises re-identification risk above either input in isolation",
+        "No formal schema review or approval process in place for clean room output"
+      ],
+      "recommendation": "Require HMAC-SHA256 with a platform-controlled salt on all input fields, and mandate explicit written schema documentation for all output datasets before any export from the clean room is authorized."
+    },
+    "network_boundary": {
+      "rating": "low",
+      "summary": "Access is confined within a VPC Service Controls perimeter, significantly limiting API-level exfiltration and lateral movement risk.",
+      "flags": [],
+      "recommendation": "Conduct a joint review of the VPC-SC perimeter policy to confirm no unintended egress paths exist, and ensure perimeter violation alerts are actively monitored in near real time."
+    },
+    "blast_radius": {
+      "rating": "medium",
+      "summary": "Vendor is requesting BigQuery Viewer only, which is a reasonable least-privilege posture, but role binding scope and enriched record export path have not been fully verified.",
+      "flags": [
+        "IAM role binding scope not confirmed as dataset-level versus project or organization level",
+        "Enriched output records exported to vendor GCP environment expand the blast radius beyond the clean room boundary",
+        "Export trigger controls rely on approved personnel designation with no technical enforcement details provided"
+      ],
+      "recommendation": "Verify and enforce that the BigQuery Viewer role binding is scoped strictly to the clean room dataset resource, not at the project or organization level, and implement audit-log-based alerting on any export trigger events."
+    },
+    "incident_response": {
+      "rating": "high",
+      "summary": "Internal alerting to DART and infosec teams is in place, but the vendor's 48-hour breach notification commitment creates a material compliance gap against GDPR Article 33's 72-hour supervisory authority notification window when controller obligations are factored in.",
+      "flags": [
+        "48-hour vendor notification timeline not contractually aligned with GDPR Article 33 72-hour regulatory clock",
+        "No confirmation that alerting covers GCP audit logs and BigQuery data access patterns specifically",
+        "Montreal-to-Atlanta data flow introduces cross-border transfer risk under GDPR Chapter V and Quebec Law 25 with no documented legal transfer mechanism",
+        "No documented Data Processing Agreement or contractual breach notification SLA referenced"
+      ],
+      "recommendation": "Contractually align the vendor's breach notification obligation to a timeline that preserves the data controller's ability to meet the GDPR Article 33 72-hour window, and require confirmation that monitoring explicitly covers BigQuery data access and clean room export events in GCP audit logs."
+    },
+    "overall_risk": "high",
+    "top_concern": "The clean room output contains confirmed enriched records combining hashed merchant PII with vendor-provided IDs, the schema of which is undefined and unreviewed, creating unquantified re-identification risk that is being exported cross-border without a documented legal transfer mechanism under GDPR or Quebec Law 25.",
+    "cleared_for_onboarding": false
+  }
+}
