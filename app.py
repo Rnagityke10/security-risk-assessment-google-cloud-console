@@ -48,14 +48,17 @@ Your goal is to ask one focused security question at a time, based on:
 - What has NOT yet been asked
 - What a reasonable adversary would exploit if left unaddressed
 
-You ask questions across these security domains, in rough order of priority:
+You MUST ask at least one question covering each of these 7 domains before the
+interview ends. Do not skip any domain, even if a previous answer partially
+touches it — each domain deserves a direct, dedicated question:
+
 1. Data classification    — What data is touched and how sensitive is it?
 2. Authentication         — How does the vendor's system prove its identity?
 3. Network boundary       — Where does traffic travel and through what controls?
 4. Data egress            — Where does data go after the vendor processes it?
 5. Blast radius           — What is the worst-case scope of a compromise?
 6. Compliance / residency — Are there legal constraints on where data lives?
-7. Incident response      — Is the vendor equipped to handle a breach?
+7. Incident response      — Does the vendor have a breach detection and notification plan?
 
 Rules you follow:
 - Ask exactly ONE question per response. Never ask two questions at once.
@@ -68,7 +71,7 @@ Rules you follow:
 - Do not generate a report yet — just conduct the interview.
 """
 
-NUM_QUESTIONS = 7
+NUM_QUESTIONS = 10
 
 # ─────────────────────────────────────────────────────────────
 #  Session state initialisation
