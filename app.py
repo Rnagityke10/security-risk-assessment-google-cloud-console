@@ -111,46 +111,91 @@ def ask_claude(client):
 
 def render_intake():
     st.title("🔒 Vendor Security Assessment")
-    st.markdown("Fill in the details below to begin the security interview.")
 
-    with st.form("intake_form"):
-        vendor_name   = st.text_input("Vendor / company name")
-        use_case      = st.text_input("Integration use case", placeholder="e.g. analytics on hashed merchant PII")
-        data_types    = st.text_input("Data types they will access", placeholder="e.g. hashed PII, transaction records")
-        access_method = st.text_input("How will they connect?", placeholder="e.g. GCP service account, REST API")
-        submitted     = st.form_submit_button("Start Security Interview →")
+    tab_new, tab_upload = st.tabs(["New Interview", "Upload JSON"])
 
-    if submitted:
-        if not all([vendor_name, use_case, data_types, access_method]):
-            st.warning("Please fill in all fields before continuing.")
-            return
+    # ── Tab 1: New interview ──────────────────────────────────
+    with tab_new:
+        st.markdown("Fill in the details below to begin the security interview.")
 
-        st.session_state.intake = {
-            "vendor_name":   vendor_name,
-            "use_case":      use_case,
-            "data_types":    data_types,
-            "access_method": access_method,
-        }
+        with st.form("intake_form"):
+            vendor_name   = st.text_input("Vendor / company name")
+            use_case      = st.text_input("Integration use case", placeholder="e.g. analytics on hashed merchant PII")
+            data_types    = st.text_input("Data types they will access", placeholder="e.g. hashed PII, transaction records")
+            access_method = st.text_input("How will they connect?", placeholder="e.g. GCP service account, REST API")
+            submitted     = st.form_submit_button("Start Security Interview →")
 
-        # Build the opening message for Claude
-        opening = (
-            f"We have a new vendor integration request. Here is the intake summary:\n\n"
-            f"- Vendor: {vendor_name}\n"
-            f"- Use case: {use_case}\n"
-            f"- Data they need access to: {data_types}\n"
-            f"- Integration method: {access_method}\n\n"
-            f"Please begin the security interview. Ask your first question."
-        )
-        st.session_state.conversation_history = [{"role": "user", "content": opening}]
-        st.session_state.qa_pairs = []
+        if submitted:
+            if not all([vendor_name, use_case, data_types, access_method]):
+                st.warning("Please fill in all fields before continuing.")
+                return
 
-        # Get the first question from Claude
-        client = get_client()
-        with st.spinner("Starting interview..."):
-            st.session_state.current_question = ask_claude(client)
+            st.session_state.intake = {
+                "vendor_name":   vendor_name,
+                "use_case":      use_case,
+                "data_types":    data_types,
+                "access_method": access_method,
+            }
 
-        st.session_state.step = "interview"
-        st.rerun()
+            opening = (
+                f"We have a new vendor integration request. Here is the intake summary:\n\n"
+                f"- Vendor: {vendor_name}\n"
+                f"- Use case: {use_case}\n"
+                f"- Data they need access to: {data_types}\n"
+                f"- Integration method: {access_method}\n\n"
+                f"Please begin the security interview. Ask your first question."
+            )
+            st.session_state.conversation_history = [{"role": "user", "content": opening}]
+            st.session_state.qa_pairs = []
+
+            client = get_client()
+            with st.spinner("Starting interview..."):
+                st.session_state.current_question = ask_claude(client)
+
+            st.session_state.step = "interview"
+            st.rerun()
+
+    # ── Tab 2: Upload JSON ────────────────────────────────────
+    with tab_upload:
+        st.markdown("Upload a completed interview JSON to skip straight to the risk assessment.")
+
+        uploaded_file = st.file_uploader("Choose a JSON file", type="json")
+
+        if uploaded_file:
+            try:
+                interview_data = json.load(uploaded_file)
+            except json.JSONDecodeError:
+                st.error("Could not parse the file. Make sure it is a valid JSON file.")
+                return
+
+            # Validate required keys
+            if "vendor_intake" not in interview_data or "interview" not in interview_data:
+                st.error("Invalid file. The JSON must contain 'vendor_intake' and 'interview' keys.")
+                st.info("Upload a file produced by the interview step or downloaded from a previous assessment.")
+                return
+
+            intake = interview_data["vendor_intake"]
+            qa_pairs = interview_data["interview"]
+            vendor_name = intake.get("vendor_name", "Unknown vendor")
+
+            st.success(f"Loaded **{len(qa_pairs)} questions** for **{vendor_name}**.")
+
+            with st.expander("Preview interview", expanded=False):
+                for qa in qa_pairs:
+                    st.markdown(f"**Q{qa['question_number']}:** {qa['question']}")
+                    st.markdown(f"**Answer:** {qa['answer']}")
+                    st.divider()
+
+            if st.button("Run Risk Assessment →"):
+                client = get_client()
+                with st.spinner("Analysing transcript and calculating risk..."):
+                    transcript = format_transcript(interview_data)
+                    st.session_state.risk_data = classify_risk(client, transcript)
+
+                st.session_state.intake = intake
+                st.session_state.qa_pairs = qa_pairs
+                st.session_state.step = "results"
+                st.rerun()
 
 # ─────────────────────────────────────────────────────────────
 #  Step 2: Interview
