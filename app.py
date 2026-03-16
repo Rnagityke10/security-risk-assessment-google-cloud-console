@@ -239,6 +239,11 @@ def render_results():
     intake = st.session_state.intake
     vendor_name = intake["vendor_name"]
 
+    # Claude sometimes nests domains under a "domains" key — flatten it if so
+    if "domains" in risk:
+        domains = risk.pop("domains")
+        risk.update(domains)
+
     overall = risk.get("overall_risk", "unknown").lower()
     cleared = risk.get("cleared_for_onboarding", False)
     top_concern = risk.get("top_concern", "")
@@ -288,6 +293,9 @@ def render_results():
         file_name=f"{vendor_name.lower().replace(' ', '_')}_risk_assessment.json",
         mime="application/json"
     )
+
+    with st.expander("🛠 Raw Claude response (debug)", expanded=False):
+        st.json(risk)
 
     if st.button("Start a new assessment"):
         for key in ["step", "intake", "conversation_history", "qa_pairs", "current_question", "risk_data"]:
